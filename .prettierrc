@@ -1,0 +1,6 @@
+{
+  "singleQuote": true,
+  "tabWidth": 2,
+  "editor.formatOnSave": true,
+  "plugins": ["prettier-plugin-organize-imports"]
+}

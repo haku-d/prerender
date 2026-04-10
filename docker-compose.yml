@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  prerender:
+    image: your-registry/prerender:latest
+    expose:
+      - 8830
+    environment:
+      NODE_ENV:
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+      SITE_URL: https://example.com
+      STATIC_SITE_DIR: /data/site
+      TZ: America/New_York
+      EXECUTE_JOB_ON_START: "false"
+      DATABASE_URL: postgresql://prerender:${POSTGRES_PASSWORD}@postgres:5432/prerender
+    networks:
+      - app-network
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - site-data:/data/site
+    cap_add:
+      - ALL
+    restart: always
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: prerender
+      POSTGRES_USER: prerender
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - app-network
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: always
+
+  prerender-ui:
+    image: your-registry/prerender-ui:latest
+    ports:
+      - 6996:4000
+    expose:
+      - 4000
+    environment:
+      API_BASE_URL: http://prerender:8830
+    networks:
+      - app-network
+    restart: always
+
+volumes:
+  site-data:
+  postgres-data:
+networks:
+  app-network:
+    external: true
