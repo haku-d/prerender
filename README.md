@@ -13,6 +13,52 @@ A self-hosted prerender service for JavaScript-heavy single-page applications (S
 5. A **scheduled job** crawls the site's XML sitemap and pre-warms the cache for all URLs.
 6. Bot request events are persisted to **PostgreSQL** and exposed via an analytics API.
 
+```mermaid
+flowchart TD
+    A([Incoming HTTP Request]) --> B[Nginx]
+
+    B --> C{Bot User-Agent\nor static asset?}
+    C -- "Regular user / static asset" --> D([Serve SPA normally])
+    C -- "Known bot\ne.g. Googlebot" --> E[Proxy to Prerender\nservice :8830\nwith X-Prerender: 1]
+
+    E --> F[Prerender Service\nFastify + Node.js]
+
+    F --> G{URL marked\nas Gone?}
+    G -- "Yes (.gone file)" --> H([410 Gone])
+
+    G -- No --> I{Redirect\nmapping exists?}
+    I -- "Yes (.json file)" --> J([301 Redirect])
+
+    I -- No --> K{Disk cache\nhit & fresh?}
+    K -- "Yes (within TTL)" --> L([Serve cached HTML\ncache: HIT])
+
+    K -- "No (miss or expired)" --> M[Launch Puppeteer\nHeadless Chromium]
+    M --> N[Navigate to SITE_URL\nwait for networkidle0\n& meta title hydration]
+    N --> O[Extract & minify HTML\nhtml-minifier-terser]
+    O --> P[Save to disk\nmd5 URL .html]
+    P --> Q([Serve fresh HTML\ncache: MISS/EXPIRED])
+
+    F --> R[(PostgreSQL\nAnalytics DB)]
+    G --> R
+    I --> R
+    K --> R
+    Q --> R
+
+    subgraph Scheduler [Scheduled Cache Warmer]
+        S[toad-scheduler\nperiodic job] --> T[Fetch XML Sitemap]
+        T --> U[Render all URLs\nvia Puppeteer]
+        U --> P
+    end
+
+    style D fill:#4a90d9,color:#fff
+    style H fill:#e05c4b,color:#fff
+    style J fill:#f5a623,color:#fff
+    style L fill:#27ae60,color:#fff
+    style Q fill:#27ae60,color:#fff
+    style R fill:#8e44ad,color:#fff
+    style Scheduler fill:#f9f9f9,stroke:#aaa
+```
+
 ---
 
 ## Installation
